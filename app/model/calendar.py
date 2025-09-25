@@ -45,4 +45,5 @@ class Event:
         return f'ID: {self.id}\n Event title: {self.title}\n Description: {self.description}\n Time: {self.start_at} - {self.end_at}'
 
 
+print("prueba para git")
 
