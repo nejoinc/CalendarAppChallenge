@@ -59,8 +59,16 @@ class Day:
             minute = minutes % 60
             self.slots[time(hour, minute)] = None
 
-    def add_event(self, event_id: str, start_at: time, end_at: time):
-        pass
+    def add_event(self, event_id: str, start_at: time, end_at: time) -> None:
+        for slot_time in self.slots:
+            if start_at <= slot_time < end_at:
+                if self.slots[slot_time] is not None:
+                    slot_not_available_error()
+                    return
+
+        for slot_time in self.slots:
+            if start_at <= slot_time < end_at:
+                self.slots[slot_time] = event_id
 
     def delete_event(self, event_id: str):
         deleted = False
@@ -92,15 +100,99 @@ class Calendar:
     def add_event(self, title: str, description: str, date_: date, start_at: time, end_at: time) -> str:
         if date_ < datetime.now().date():
             date_lower_than_today_error()
+            return ""
+
+        if date_ not in self.days:
+            self.days[date_] = Day(date_)
+
+        event = Event(title, description, date_, start_at, end_at)
+        self.days[date_].add_event(event.id, start_at, end_at)
+        self.events[event.id] = event
+        return event.id
+
+    def add_reminder(self, event_id: str, date_time: datetime , type_: str):
+        if event_id not in self.events:
+            event_not_found_error()
         else:
+            event = self.events[event_id]
+            event.add_reminder(date_time, type_)
+
+    def find_available_slots(self, date_: date) -> list[time]:
+        if date_ not in self.days:
+            day = Day(date_)
+            return list(day.slots.keys())
+        day = self.days[date_]
+        disponibles: list[time] = []
+
+        for hora, evento in day.slots.items():
+            if evento is None:
+                disponibles.append(hora)
+
+        return disponibles
+
+    def update_event(self, event_id: str, title: str, description: str, date_: date, start_at: time, end_at: time):
+        event = self.events[event_id]
+        if not event:
+            event_not_found_error()
+
+        is_new_date = False
+
+        if event.date_ != date_:
+            self.delete_event(event_id)
+            event = Event(title=title, description=description, date_=date_, start_at=start_at, end_at=end_at)
+            event.id = event_id
+            self.events[event_id] = event
+            is_new_date = True
             if date_ not in self.days:
                 self.days[date_] = Day(date_)
-        new_event = Event(title, description, date_, start_at, end_at)
+            day = self.days[date_]
+            day.add_event(event_id, start_at, end_at)
+        else:
+            event.title = title
+            event.description = description
+            event.date_ = date_
+            event.start_at = start_at
+            event.end_at = end_at
 
-        self.days[date_].add_event(new_event.id)
-        self.events[new_event.id] = new_event
+        for day in self.days.values():
+            if not is_new_date and event_id in day.slots.values():
+                day.delete_event(event.id)
+                day.update_event(event.id, start_at, end_at)
 
-        return new_event.id
+    def delete_event(self, event_id: str):
+        if event_id not in self.events:
+            event_not_found_error()
+
+        self.events.pop(event_id)
+
+        for day in self.days.values():
+            if event_id in day.slots.values():
+                day.delete_event(event_id)
+                break
+
+    def find_events(self, start_at: date, end_at: date) -> dict[date, list[Event]]:
+        events: dict[date, list[Event]] = {}
+        for event in self.events.values():
+            if start_at <= event.date_ <= end_at:
+                if event.date_ not in events:
+                    events[event.date_] = []
+                events[event.date_].append(event)
+        return events
+
+    def delete_reminder(self, event_id: str, reminder_index: int):
+        event = self.events.get(event_id)
+        if not event:
+            event_not_found_error()
+
+        event.delete_reminder(reminder_index)
+
+    def list_reminders(self, event_id: str) -> list[Reminder]:
+        event = self.events.get(event_id)
+        if not event:
+            event_not_found_error()
+
+        return event.reminders
+
 
 
 
